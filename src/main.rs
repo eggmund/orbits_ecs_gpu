@@ -1,8 +1,15 @@
+pub mod gravity;
+
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
 
+use glsl_layout::vec2;
+use glsl_layout::float;
+
 
 fn main() {
+    use gravity::{gravity_job_receiver_system, gravity_job_sender_system};
+
     App::build()
         .init_resource::<MainState>()
         .insert_resource(Msaa { samples: 8 })
@@ -11,25 +18,22 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(ShapePlugin)
         .add_startup_system(setup.system())
-        .add_system(gravity_system.system().chain(motion_update_system.system()))
+        .add_system(
+            gravity_job_sender_system.system()
+                .chain(gravity_job_receiver_system.system())
+                .chain(motion_update_system.system())
+        )
         .run();
 }
 
 
-#[derive(Bundle)]
-struct Planet {
-    transform: GlobalTransform,
-    velocity: Velocity,
-    force: ResultantForce,
-    mass: Mass,
-    body: Sphere,
-}
 
-struct Mass(f32);
-struct Sphere { r: f32 }
+pub struct Mass(f32);
+pub struct Sphere { r: f32 }
 
-struct Velocity(Vec2);
-struct ResultantForce(Vec2);
+pub struct Velocity(Vec2);
+pub struct ResultantForce(Vec2);
+pub struct Planet;
 
 
 // Updates forces on objects and applies velocity
@@ -59,13 +63,7 @@ fn motion_update_system(
 }
 
 
-fn gravity_system(mut grav_query: Query<(
-    &mut ResultantForce,
-    &Mass,
-    &GlobalTransform,
-)>) {
 
-}
 
 
 fn setup(
@@ -76,8 +74,8 @@ fn setup(
 ) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
-    add_planet(&mut commands, &mut state, Vec2::new(0.0, 0.0), Vec2::new(10.0, 0.0), 5000.0, 10.0);
-    add_planet(&mut commands, &mut state, Vec2::new(0.0, -100.0), Vec2::new(10.0, 0.0), 5000.0, 100.0);
+    add_planet(&mut commands, &mut state, Vec2::new(0.0, 100.0), Vec2::new(10.0, 0.0), 5000.0, 10.0);
+    add_planet(&mut commands, &mut state, Vec2::new(0.0, -100.0), Vec2::new(-10.0, 0.0), 5000.0, 100.0);
 }
 
 fn add_planet(
@@ -87,7 +85,7 @@ fn add_planet(
 ) {
     let circle = shapes::Circle {
         radius,
-        center: [0.0, 0.0].into()
+        ..Default::default()
     };
 
     commands
@@ -98,17 +96,14 @@ fn add_planet(
                 fill_options: FillOptions::default(),
                 outline_options: StrokeOptions::default().with_line_width(5.0),
             },
-            Transform::from_xyz(0.0, 0.0, 0.0)
+            Transform::default(),
         ))
-        .insert_bundle(Planet {
-            transform: GlobalTransform::from_xyz(position.x, position.y, 0.0),
-            velocity: Velocity(velocity),
-            force: ResultantForce(Vec2::default()),
-            mass: Mass(mass),
-            body: Sphere { r: radius },
-        });
-
-    state.planet_count += 1;
+        .insert(Transform::from_xyz(position.x, position.y, 0.0))
+        .insert(Velocity(velocity))
+        .insert(ResultantForce(Vec2::default()))
+        .insert(Mass(mass))
+        .insert(Sphere { r: radius })
+        .insert(Planet);
 }
 
 

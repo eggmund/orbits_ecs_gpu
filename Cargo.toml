@@ -8,3 +8,5 @@ edition = "2018"
 [dependencies]
 bevy = "0.5"
 bevy_prototype_lyon = "0.3.1"
+glsl-layout = "0.4"
+glsl-layout-derive = "0.4.0"
